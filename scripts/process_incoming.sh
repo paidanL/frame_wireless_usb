@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 
 #set -euo pipefail
+#source "$(dirname "$0")/../lib/logging.sh"
+
 IN=/opt/frame-transfer/incoming
 STAGE=/opt/frame-transfer/staging
 PROCESSED=/opt/frame-transfer/processed
 TMPDIR=/tmp/frame_proc
+
+# protect against bad dependencies
+command -v convert >/dev/null || {
+    echo "ImageMagick not installed"
+    # log "ImageMagick not installed"
+    exit 1
+}
 
 mkdir -p "$STAGE" "$PROCESSED" "$TMPDIR"
 
@@ -17,6 +26,10 @@ for file in "$TMPDIR"/*; do
   [ -f "$file" ] || continue
   # basic sanity
   BASENAME=$(basename "$file")
+
+  echo "Processing image: ${BASENAME}..."
+  # log "Processing image: ${BASENAME}..."
+
   # skip dotfiles
   if [[ "$BASENAME" =~ ^\. ]]; then continue; fi
 
@@ -45,8 +58,23 @@ for file in "$TMPDIR"/*; do
 #	 \( mpr:tiles[0] -resize 1920x1080\> "$FINAL" \)
 #
   # crop and downsample to 1080p at 16:9
-  convert "$OUT" -auto-orient -gravity center -crop 16:9 +repage \
-	  -resize 1920x1080\> "$FINAL"
+  convert "$OUT" \
+      -auto-orient \
+      -gravity center \
+      -crop 16:9 \
+      +repage \
+	  -resize 1920x1080\> \
+      "$FINAL"
+
+  # convert "$OUT" \
+  #     -define jpeg:size=1920x1080 \
+  #     -auto-orient \
+  #     -gravity center \
+  #     -crop 16:9 \
+  #     +repage \
+	 #  -resize 1920x1080\> \
+  #     "$FINAL"
+
 
   # strip large metadata
   exiftool -all= "$FINAL"
@@ -63,7 +91,7 @@ for file in "$TMPDIR"/*; do
   mv "$FINAL" "$CLEANFILE"
   
   # mark processed
-  #mv "$CLEANFILE" "$PROCESSED/"
+  mv "$CLEANFILE" "$PROCESSED/"
 
 done
 
