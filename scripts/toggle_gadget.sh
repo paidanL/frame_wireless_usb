@@ -24,7 +24,22 @@ disable_gadget() {
     fi
 }
 
+_reconciliation_algo() {
+    for meta in /var/lib/frame-cache/paths/*/meta; do
+        SRC=$(grep '^SRC=' "$meta" | cut -d= -f2)
+
+        if [[ ! -f "$SRC" ]]; then
+            USB=$(grep '^USB=' "$meta" | cut -d= -f2)
+            rm -f "$USB"
+            rm -rf "$(dirname "$meta")"
+        fi
+    done
+}
+
 enable_gadget() {
+    # Reconcile current data
+    _reconciliation_algo;
+
     # If gadget does not exist, recreate it
     if [ ! -d "$G" ]; then
         mkdir -p "$G"

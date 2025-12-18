@@ -7,6 +7,7 @@ IN=/opt/frame-transfer/incoming
 STAGE=/opt/frame-transfer/staging
 PROCESSED=/opt/frame-transfer/processed
 TMPDIR=/tmp/frame_proc
+CACHE_DIR="/var/lib/frame-cache"
 
 # protect against bad dependencies
 command -v convert >/dev/null || {
@@ -15,15 +16,18 @@ command -v convert >/dev/null || {
     exit 1
 }
 
-mkdir -p "$STAGE" "$PROCESSED" "$TMPDIR"
+#mkdir -p "$STAGE" "$PROCESSED" "$TMPDIR"
+mkdir -p "$STAGE" "$PROCESSED"
 
 # loop over new files
 #inotifywait -m -e close_write --format '%w%f' "$IN" | while read file; do
 
-cp "$IN"/* "$TMPDIR" 2>/dev/null
+#cp "$IN"/* "$TMPDIR" 2>/dev/null
 
-for file in "$TMPDIR"/*; do
+for file in "$IN"/*; do
+#for file in "$TMPDIR"/*; do
   [ -f "$file" ] || continue
+
   # basic sanity
   BASENAME=$(basename "$file")
 
@@ -46,6 +50,26 @@ for file in "$TMPDIR"/*; do
   #  }
   #else
   # For JPEG/PNG — copy to staging
+  HASH=$(sha1sum "$file" | awk '{print $1}')
+  SUBDIR="{$HASH:0:2}"
+  MARKER="$CACHE_DIR/hashes/$SUBDIR/$HASH"
+
+  mkdir -p "$CACHE_DIR/hashes/$SUBDIR"
+
+  if [[ -f "$MARKER" ]]; then
+      echo "Already processed: $SRC"
+      exit 0
+  fi
+
+  PATH_KEY=$(printf '%s' "$file" | sha1sum | awk '{print $1}')
+  CLEANNAME=$(echo "${name}" | tr ' ' '_' | tr -c '[:alnum:]_-' '_')
+  USB_OUT="$PROCESSED/${CLEANNAME}.${ext}"
+
+  if [[ -f "USB_OUT" ]]; then
+      echo "File already stored on USB"
+      continue
+  fi
+
   OUT="$STAGE/${name}.${ext}"
   cp "$file" "$OUT"
   #fi
@@ -53,9 +77,6 @@ for file in "$TMPDIR"/*; do
   # fix orientation & re-export optimized jpeg
   # create final JPEG file (map name -> final file)
   FINAL="/opt/frame-transfer/staging/${name}.${ext}"
-#  convert "$OUT" -auto-orient -gravity center -crop 16:9 +repage \
-#	 mpr:tiles \
-#	 \( mpr:tiles[0] -resize 1920x1080\> "$FINAL" \)
 #
   # crop and downsample to 1080p at 16:9
   convert "$OUT" \
@@ -66,24 +87,8 @@ for file in "$TMPDIR"/*; do
 	  -resize 1920x1080\> \
       "$FINAL"
 
-  # convert "$OUT" \
-  #     -define jpeg:size=1920x1080 \
-  #     -auto-orient \
-  #     -gravity center \
-  #     -crop 16:9 \
-  #     +repage \
-	 #  -resize 1920x1080\> \
-  #     "$FINAL"
-
-
   # strip large metadata
   exiftool -all= "$FINAL"
-
-#  convert "$OUT" \
-#    -resize "x1080" \
-#    -gravity center -crop 1920x1080 \
-#    - quality 92 \
-#    "$FINAL"
 
   # strip/normalize filenames (no spaces)
   CLEANNAME=$(echo "${name}" | tr ' ' '_' | tr -c '[:alnum:]_-' '_')
@@ -93,8 +98,20 @@ for file in "$TMPDIR"/*; do
   # mark processed
   mv "$CLEANFILE" "$PROCESSED/"
 
+  # update/add hash
+  touch "$MARKER"
+
+  # update meta data
+  mkdir -p "$CACH_DIR/paths/$PATH_KEY"
+  cat > "$CACHE_DIR/paths/$PATH_KEY/meta" <<EOF
+SRC=$SRC
+HASH=$HASH
+USB=$USB_OUT
+EOF
+
 done
 
 # cleanup temp dir
-rm -rf "$TMPDIR" "$STAGE"/*
+rm -rf "$STAGE"/*
+#rm -rf "$TMPDIR" "$STAGE"/*
 
