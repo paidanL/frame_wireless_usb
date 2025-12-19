@@ -47,6 +47,10 @@ _reconciliation_algo() {
 }
 
 enable_gadget() {
+    # lockfile creation
+    exec 9>"/var/lib/frame-cache/lock"
+    flock 9
+
     # Reconcile current data
     _reconciliation_algo;
 

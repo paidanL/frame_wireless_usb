@@ -55,8 +55,6 @@ for file in "$IN"/*; do
   SUBDIR="${HASH:0:2}"
   MARKER="$CACHE_DIR/hashes/$SUBDIR/$HASH"
 
-  mkdir -p "$CACHE_DIR/hashes/$SUBDIR"
-
   if [[ -f "$MARKER" ]]; then
       echo "Already processed: $SRC"
       continue
@@ -66,11 +64,6 @@ for file in "$IN"/*; do
   CLEANNAME=$(echo "${name}" | tr ' ' '_' | tr -c '[:alnum:]_-' '_')
   USB_OUT="$PROCESSED/${CLEANNAME}.${ext}"
 
-  #if [[ -f "USB_OUT" ]]; then
-  #    echo "File already stored on USB"
-  #    continue
-  #fi
-
   OUT="$STAGE/${name}.${ext}"
   cp "$file" "$OUT"
   #fi
@@ -78,7 +71,11 @@ for file in "$IN"/*; do
   # fix orientation & re-export optimized jpeg
   # create final JPEG file (map name -> final file)
   FINAL="/opt/frame-transfer/staging/${name}.${ext}"
-#
+
+  # lockfile creation
+  exec 9>"/var/lib/frame-cache/lock"
+  flock 9
+
   # crop and downsample to 1080p at 16:9
   convert "$OUT" \
       -auto-orient \
@@ -100,6 +97,7 @@ for file in "$IN"/*; do
   mv "$CLEANFILE" "$PROCESSED/"
 
   # update/add hash
+  mkdir -p "$CACHE_DIR/hashes/$SUBDIR"
   touch "$MARKER"
 
   # update meta data
