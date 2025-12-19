@@ -30,7 +30,7 @@ _reconciliation_algo() {
         HASH=$(grep '^HASH=' "$meta" | cut -d= -f2)
 
         if [[ ! -f "$SRC" ]]; then
-            echo "Removing $SRC"
+            echo "Removing $SRC from 'processed'"
 
             USB=$(grep '^USB=' "$meta" | cut -d= -f2)
             rm -f "$USB"
@@ -76,9 +76,6 @@ enable_gadget() {
 
     # sync only changed photos
     sudo rsync -rtv --delete --no-perms --no-owner --no-group --modify-window=2 "$READY"/* /mnt/frame_usb
-
-    # Copy the ready photos
-    #cp "$READY"/* /mnt/frame_usb/
 
     sync
     umount /mnt/frame_usb
