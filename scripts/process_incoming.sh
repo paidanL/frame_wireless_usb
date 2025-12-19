@@ -50,25 +50,26 @@ for file in "$IN"/*; do
   #  }
   #else
   # For JPEG/PNG — copy to staging
+  SRC=$file
   HASH=$(sha1sum "$file" | awk '{print $1}')
-  SUBDIR="{$HASH:0:2}"
+  SUBDIR="${HASH:0:2}"
   MARKER="$CACHE_DIR/hashes/$SUBDIR/$HASH"
 
   mkdir -p "$CACHE_DIR/hashes/$SUBDIR"
 
   if [[ -f "$MARKER" ]]; then
       echo "Already processed: $SRC"
-      exit 0
+      continue
   fi
 
   PATH_KEY=$(printf '%s' "$file" | sha1sum | awk '{print $1}')
   CLEANNAME=$(echo "${name}" | tr ' ' '_' | tr -c '[:alnum:]_-' '_')
   USB_OUT="$PROCESSED/${CLEANNAME}.${ext}"
 
-  if [[ -f "USB_OUT" ]]; then
-      echo "File already stored on USB"
-      continue
-  fi
+  #if [[ -f "USB_OUT" ]]; then
+  #    echo "File already stored on USB"
+  #    continue
+  #fi
 
   OUT="$STAGE/${name}.${ext}"
   cp "$file" "$OUT"
@@ -102,7 +103,7 @@ for file in "$IN"/*; do
   touch "$MARKER"
 
   # update meta data
-  mkdir -p "$CACH_DIR/paths/$PATH_KEY"
+  mkdir -p "$CACHE_DIR/paths/$PATH_KEY"
   cat > "$CACHE_DIR/paths/$PATH_KEY/meta" <<EOF
 SRC=$SRC
 HASH=$HASH
